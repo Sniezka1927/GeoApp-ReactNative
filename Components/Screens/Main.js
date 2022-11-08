@@ -16,7 +16,6 @@ const Main = ({ route, navigation }) => {
     });
     setFontLoaded(true);
   };
-
   componentDidMount();
 
   const enterApp = () => {
@@ -62,26 +61,3 @@ const styles = StyleSheet.create({
 });
 
 export default Main;
-
-{
-  /* <View style={{ flex: 1 }}>
-  {0 == 0 ? (
-    <ActivityIndicator size="large" color="#0000ff" />
-  ) : (
-    <ActivityIndicator size="small" color="#ff0000" />
-  )}
-</View>; */
-}
-
-// this.state.fontloaded ? (
-//   <View style={{ flex: 1 }}>
-//     <Text
-//       style={{
-//         fontFamily: "myfont",
-//         fontSize: 100,
-//       }}
-//     >
-//       Test
-//     </Text>
-//   </View>
-// ) : null;

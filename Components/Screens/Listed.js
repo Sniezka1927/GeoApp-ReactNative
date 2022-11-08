@@ -1,23 +1,30 @@
 import { View, Text, StyleSheet, FlatList, Switch } from "react-native";
 import Button from "../UI/Button";
 import * as Location from "expo-location";
-import * as Font from "expo-font";
-import { useState } from "react";
+// import * as Font from "expo-font";
+import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import ListedLocations from "./ListedLocations";
 const Listed = ({ route, navigation }) => {
   const [isEnabled, setIsEnabled] = useState(false);
-  const toggleSwitch = () => setIsEnabled((previousState) => !previousState);
-  const [positions, setPositions] = useState([{"latitude": 50.0458276, "longitude": 19.9812548, "timestamp": 1667411208458}]);
-  const [fontLoaded, setFontLoaded] = useState(false);
+  // const toggleSwitch = () => setIsEnabled((previousState) => !previousState);
+  const [positions, setPositions] = useState([]);
 
-  const componentDidMount = async () => {
-    await Font.loadAsync({
-      myfont: require("../../assets/font/opensans.ttf"), // Uwaga: proszę w nazwie fonta nie używać dużych liter
-    });
-    Location.requestForegroundPermissionsAsync();
-    setFontLoaded(true);
+  useEffect(() => {
     getAllData();
+  }, []);
+
+  const toggleSwitch = async () => {
+    const adjustedPos = positions.map((singlePos) => {
+      let parsedPos = JSON.parse(singlePos.value);
+      parsedPos.enabled = !parsedPos.enabled;
+
+      singlePos.value = JSON.stringify(parsedPos);
+      return singlePos;
+    });
+
+    setPositions(adjustedPos);
+    setIsEnabled((previousState) => !previousState);
   };
 
   const getAllData = async () => {
@@ -29,20 +36,18 @@ const Listed = ({ route, navigation }) => {
       return { key: key, value: value };
     });
     setPositions(maps);
-    console.log(positions);
   };
-
-  if (!fontLoaded) componentDidMount();
 
   const getPosition = async () => {
     let pos = await Location.getCurrentPositionAsync({});
     const position = {
+      id: Math.floor(Math.random() * 100),
       timestamp: pos.timestamp,
       latitude: pos.coords.latitude,
       longitude: pos.coords.longitude,
+      enabled: isEnabled,
     };
-    console.log(position);
-    // getAllData();
+    alert(JSON.stringify(position, null, 5));
     await setData(position);
   };
 
@@ -54,19 +59,52 @@ const Listed = ({ route, navigation }) => {
     getAllData();
   };
 
-  const getData = async (position) => {
-    let val = await AsyncStorage.getItem(`${position.timestamp}`);
-    console.log(val);
+  // const getData = async (position) => {
+  //   let val = await AsyncStorage.getItem(`${position.timestamp}`);
+  //   console.log(val);
+  // };
+
+  const clearData = async () => {
+    await AsyncStorage.clear();
+    setPositions([]);
   };
 
+  const positionSwitchHandler = (id) => {
+    const adjustedPos = positions.map((singlePos) => {
+      let parsedPos = JSON.parse(singlePos.value);
+      if (parsedPos.id === id) {
+        parsedPos.enabled = !parsedPos.enabled;
+        singlePos.value = JSON.stringify(parsedPos);
+      }
+      return singlePos;
+    });
+    setPositions(adjustedPos);
+  };
+
+  const displayMap = () => {
+    const parsedPos = positions.map((singlePos) => {
+      return JSON.parse(singlePos.value);
+    });
+    console.log(parsedPos);
+    console.log("-----------------------------------------");
+    const enabledPos = parsedPos.map((singlePos) => {
+      if (singlePos.enabled) return singlePos;
+    });
+    if (enabledPos.length >= 1 && enabledPos[0] !== undefined)
+      navigation.navigate("Map", { positions: enabledPos });
+    else alert("select any position to display them on Map.");
+  };
   return (
     <View style={styles.container}>
       <View style={styles.buttonContainer}>
         <Button text={"add position"} clickFunction={getPosition}></Button>
-        <Button text={"remove all positions"}></Button>
+        <Button
+          text={"remove all positions"}
+          clickFunction={clearData}
+        ></Button>
       </View>
       <View style={styles.buttonContainer}>
-        <Button text={"check map"}></Button>
+        <Button text={"check map"} clickFunction={displayMap}></Button>
         <Switch
           trackColor={{ false: "#767577", true: "#81b0ff" }}
           thumbColor={isEnabled ? "#fff" : "#fff"}
@@ -81,17 +119,13 @@ const Listed = ({ route, navigation }) => {
           style={styles.list}
           data={positions}
           renderItem={(pos) => {
-            <View style={styles.listItem}>
-              <Text style={styles.text}>
-                {JSON.parse(pos.item.value).timestamp}
-              </Text>
-              <Text style={styles.text}>
-                {JSON.parse(pos.item.value).latitude}
-              </Text>
-              <Text style={styles.text}>
-                {JSON.parse(pos.item.value).longitude}
-              </Text>
-            </View>;
+            return (
+              <ListedLocations
+                clickFunction={positionSwitchHandler}
+                pos={pos.item}
+                switchHandler={isEnabled}
+              ></ListedLocations>
+            );
           }}
         ></FlatList>
       </View>
@@ -108,19 +142,14 @@ const styles = StyleSheet.create({
   buttonContainer: {
     flex: 1,
     flexDirection: "row",
-    backgroundColor: "red",
   },
   positionsContainer: {
     flex: 10,
-    backgroundColor: "yellow",
-    borderWidth: 10,
     margin: 15,
-    width: 150,
     alignItems: "center",
   },
   list: {
     flex: 1,
-    backgroundColor: "red",
   },
   listItem: {
     alignItems: "center",
