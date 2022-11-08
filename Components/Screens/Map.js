@@ -1,27 +1,28 @@
 import MapView from "react-native-maps";
 const Map = ({ route, navigation }) => {
-  const positions = route.params.positions;
+  const allLocations = route.params.locations;
+  const firstLocation = JSON.parse(route.params.locations[0].value);
   return (
     <MapView
       style={{ flex: 1 }}
       initialRegion={{
-        latitude: positions[0].latitude,
-        longitude: positions[0].longitude,
+        latitude: firstLocation.latitude,
+        longitude: firstLocation.longitude,
         latitudeDelta: 0.001,
         longitudeDelta: 0.001,
       }}
     >
-      {positions.map((singlePos) => {
-        if (singlePos === undefined) return;
+      {allLocations.map((singleLocation) => {
+        const locationValue = JSON.parse(singleLocation.value);
         return (
           <MapView.Marker
-            key={singlePos.timestamp}
+            key={locationValue.timestamp}
             coordinate={{
-              latitude: singlePos.latitude,
-              longitude: singlePos.longitude,
+              latitude: locationValue.latitude,
+              longitude: locationValue.longitude,
             }}
-            title={`${singlePos.id}`}
-            description={`${singlePos.timestamp}`}
+            title={`${locationValue.id}`}
+            description={`${locationValue.timestamp}`}
           />
         );
       })}

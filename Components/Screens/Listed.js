@@ -1,41 +1,43 @@
-import { View, Text, StyleSheet, FlatList, Switch } from "react-native";
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  Switch,
+  ActivityIndicator,
+} from "react-native";
 import Button from "../UI/Button";
 import * as Location from "expo-location";
-// import * as Font from "expo-font";
 import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ListedLocations from "./ListedLocations";
-const Listed = ({ route, navigation }) => {
-  const [isEnabled, setIsEnabled] = useState(false);
-  // const toggleSwitch = () => setIsEnabled((previousState) => !previousState);
-  const [positions, setPositions] = useState([]);
+const Listed = ({ navigation }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [allLocations, setAllLocations] = useState({
+    positions: [],
+    allEnabled: false,
+  });
 
   useEffect(() => {
-    getAllData();
+    getAllData(allLocations.allEnabled);
+    const authorizeLocation = async () => {
+      await Location.requestForegroundPermissionsAsync();
+    };
+    authorizeLocation();
+    setLoaded(true);
   }, []);
 
-  const toggleSwitch = async () => {
-    const adjustedPos = positions.map((singlePos) => {
-      let parsedPos = JSON.parse(singlePos.value);
-      parsedPos.enabled = !parsedPos.enabled;
-
-      singlePos.value = JSON.stringify(parsedPos);
-      return singlePos;
+  const toggleMainSwitch = async () => {
+    allLocations.positions.map(async (position) => {
+      let currentPositionValue = JSON.parse(position.value);
+      if (currentPositionValue.isEnabled === false) return;
+      currentPositionValue.isEnabled = true;
+      position.value = currentPositionValue;
+      await AsyncStorage.setItem(
+        `${position.key}`,
+        JSON.stringify(position.value)
+      );
     });
-
-    setPositions(adjustedPos);
-    setIsEnabled((previousState) => !previousState);
-  };
-
-  const getAllData = async () => {
-    let keys = await AsyncStorage.getAllKeys();
-    let stores = await AsyncStorage.multiGet(keys);
-    let maps = stores.map((result, i, store) => {
-      let key = store[i][0];
-      let value = store[i][1];
-      return { key: key, value: value };
-    });
-    setPositions(maps);
+    await getAllData(!allLocations.allEnabled);
   };
 
   const getPosition = async () => {
@@ -45,10 +47,11 @@ const Listed = ({ route, navigation }) => {
       timestamp: pos.timestamp,
       latitude: pos.coords.latitude,
       longitude: pos.coords.longitude,
-      enabled: isEnabled,
+      isEnabled: allLocations.allEnabled,
     };
     alert(JSON.stringify(position, null, 5));
     await setData(position);
+    await getAllData(allLocations.allEnabled);
   };
 
   const setData = async (position) => {
@@ -56,44 +59,64 @@ const Listed = ({ route, navigation }) => {
       `${position.timestamp}`,
       JSON.stringify(position)
     );
-    getAllData();
   };
 
-  // const getData = async (position) => {
-  //   let val = await AsyncStorage.getItem(`${position.timestamp}`);
-  //   console.log(val);
-  // };
+  const getAllData = async (switchBool) => {
+    let keys = await AsyncStorage.getAllKeys();
+    let stores = await AsyncStorage.multiGet(keys);
+    let maps = stores.map((result, i, store) => {
+      let key = store[i][0];
+      let value = store[i][1];
+      return { key: key, value: value };
+    });
+    console.log("66", maps);
+    console.log("---------------------------");
+    setAllLocations({
+      positions: maps,
+      allEnabled: switchBool,
+    });
+  };
 
   const clearData = async () => {
     await AsyncStorage.clear();
-    setPositions([]);
+    setAllLocations({
+      positions: [],
+      allEnabled: allLocations.allEnabled,
+    });
+    alert("All locations cleared!");
   };
 
-  const positionSwitchHandler = (id) => {
-    const adjustedPos = positions.map((singlePos) => {
-      let parsedPos = JSON.parse(singlePos.value);
-      if (parsedPos.id === id) {
-        parsedPos.enabled = !parsedPos.enabled;
-        singlePos.value = JSON.stringify(parsedPos);
+  const positionSwitchHandler = async (key) => {
+    allLocations.positions.map(async (position) => {
+      let currentPositionValue = position.value;
+      if (JSON.parse(currentPositionValue).timestamp === key) {
+        currentPositionValue = JSON.parse(currentPositionValue);
+        currentPositionValue.isEnabled = !currentPositionValue.isEnabled;
+        await AsyncStorage.setItem(
+          `${key}`,
+          JSON.stringify(currentPositionValue)
+        );
       }
-      return singlePos;
     });
-    setPositions(adjustedPos);
+    await getAllData(allLocations.allEnabled);
   };
 
-  const displayMap = () => {
-    const parsedPos = positions.map((singlePos) => {
-      return JSON.parse(singlePos.value);
+  const displayMap = async () => {
+    console.log("displaying map");
+
+    const selectedPositions = allLocations.positions.map((position) => {
+      if (JSON.parse(position.value).isEnabled) return position;
     });
-    console.log(parsedPos);
-    console.log("-----------------------------------------");
-    const enabledPos = parsedPos.map((singlePos) => {
-      if (singlePos.enabled) return singlePos;
+
+    const filteredPositions = selectedPositions.filter(function (element) {
+      return element !== undefined;
     });
-    if (enabledPos.length >= 1 && enabledPos[0] !== undefined)
-      navigation.navigate("Map", { positions: enabledPos });
-    else alert("select any position to display them on Map.");
+    console.log("119", filteredPositions);
+    if (filteredPositions.length > 0)
+      navigation.navigate("Map", { locations: filteredPositions });
+    else alert("Select position or positions to view them on map");
   };
+
   return (
     <View style={styles.container}>
       <View style={styles.buttonContainer}>
@@ -107,27 +130,31 @@ const Listed = ({ route, navigation }) => {
         <Button text={"check map"} clickFunction={displayMap}></Button>
         <Switch
           trackColor={{ false: "#767577", true: "#81b0ff" }}
-          thumbColor={isEnabled ? "#fff" : "#fff"}
+          thumbColor={allLocations.allEnabled ? "#fff" : "#fff"}
           ios_backgroundColor="#3e3e3e"
-          onValueChange={toggleSwitch}
-          value={isEnabled}
+          onValueChange={toggleMainSwitch}
+          value={allLocations.allEnabled}
         />
       </View>
 
       <View style={styles.positionsContainer}>
-        <FlatList
-          style={styles.list}
-          data={positions}
-          renderItem={(pos) => {
-            return (
-              <ListedLocations
-                clickFunction={positionSwitchHandler}
-                pos={pos.item}
-                switchHandler={isEnabled}
-              ></ListedLocations>
-            );
-          }}
-        ></FlatList>
+        {loaded ? (
+          <FlatList
+            style={styles.list}
+            data={allLocations.positions}
+            renderItem={(pos) => {
+              return (
+                <ListedLocations
+                  clickFunction={positionSwitchHandler}
+                  pos={pos.item}
+                  switchHandler={allLocations.allEnabled}
+                ></ListedLocations>
+              );
+            }}
+          ></FlatList>
+        ) : (
+          <ActivityIndicator size="large" color="#0000ff" />
+        )}
       </View>
     </View>
   );

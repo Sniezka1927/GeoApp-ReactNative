@@ -1,9 +1,10 @@
-import { View, Text, StyleSheet, FlatList, Switch } from "react-native";
+import { View, Text, StyleSheet, Image, Switch } from "react-native";
 import { useState } from "react";
 import * as Font from "expo-font";
-
+import globe from "../../assets/globe.png";
 const ListedLocations = (props) => {
-  const [isEnabled, setIsEnabled] = useState(false);
+  const pos = JSON.parse(props.pos.value);
+  const [isEnabled, setIsEnabled] = useState(pos.isEnabled);
   const [fontLoaded, setFontLoaded] = useState(false);
   const componentDidMount = async () => {
     await Font.loadAsync({
@@ -13,11 +14,9 @@ const ListedLocations = (props) => {
   };
   componentDidMount();
 
-  const pos = JSON.parse(props.pos.value);
   const toggleSwitch = () => {
     setIsEnabled((previousState) => !previousState);
-    const id = pos.id;
-    props.clickFunction(id);
+    props.clickFunction(pos.timestamp);
   };
 
   if (props.switchHandler === true && isEnabled === false) toggleSwitch();
@@ -25,17 +24,22 @@ const ListedLocations = (props) => {
   return (
     <View style={styles.listContainer}>
       <View style={styles.listItem}>
-        <Text style={styles.text}>Timestamp: {pos.timestamp}, </Text>
-        <Text style={styles.text}>Latitude: {pos.latitude}, </Text>
-        <Text style={styles.text}>Longitude: {pos.longitude}</Text>
+        <View style={styles.imageCont}>
+          <Image style={styles.image} source={globe} />
+        </View>
+        <View style={styles.dataCont}>
+          <Text style={styles.text}>Timestamp: {pos.timestamp}, </Text>
+          <Text style={styles.text}>Latitude: {pos.latitude}, </Text>
+          <Text style={styles.text}>Longitude: {pos.longitude}</Text>
+        </View>
+        <Switch
+          trackColor={{ false: "#767577", true: "#81b0ff" }}
+          thumbColor={isEnabled ? "#fff" : "#fff"}
+          ios_backgroundColor="#3e3e3e"
+          onValueChange={toggleSwitch}
+          value={isEnabled}
+        />
       </View>
-      <Switch
-        trackColor={{ false: "#767577", true: "#81b0ff" }}
-        thumbColor={isEnabled ? "#fff" : "#fff"}
-        ios_backgroundColor="#3e3e3e"
-        onValueChange={toggleSwitch}
-        value={isEnabled}
-      />
     </View>
   );
 };
@@ -52,10 +56,26 @@ const styles = StyleSheet.create({
     borderRadius: 25,
   },
   listItem: {
-    flexDirection: "column",
+    flexDirection: "row",
   },
   text: {
     fontFamily: "myfont",
+  },
+  image: {
+    width: 60,
+    height: 60,
+  },
+  imageCont: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 5,
+    // marginRight: 10,
+  },
+  dataCont: {
+    flexDirection: "column",
+    // padding: 5,
+    flex: 3,
   },
 });
 export default ListedLocations;
